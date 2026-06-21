@@ -1,9 +1,12 @@
 # Homework 1: Agentic RAG — Solutions & Notes
 
-**Course:** LLM Zoomcamp 2026 — Module 1  
-**Knowledge base:** Course lesson pages (pulled from GitHub, commit `8c1834d`)  
-**Full notebook:** `<https://github.com/Sanjomwa/LLM-ZOOMCAMP-2026/blob/main/homework/01-agentic-rag.ipynb>`
-**Course material:** `<https://github.com/DataTalksClub/llm-zoomcamp/tree/main/01-agentic-rag>`
+**Course:** LLM Zoomcamp 2026 — Module 1
+
+**Knowledge base:** Course lesson pages (pulled from GitHub, commit `8c1834d`)
+
+**Full notebook:** `https://github.com/Sanjomwa/LLM-ZOOMCAMP-2026/blob/main/homework/module_01/01-agentic-rag.ipynb`
+
+**Course material:** `https://github.com/DataTalksClub/llm-zoomcamp/tree/main/01-agentic-rag`
 
 ---
 
