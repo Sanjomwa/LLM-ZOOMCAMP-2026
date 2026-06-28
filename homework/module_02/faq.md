@@ -75,3 +75,54 @@ The embedding model and the search engine have different responsibilities:
 - the search library indexes vectors and retrieves the nearest neighbors.
 
 This separation of concerns makes it easy to replace either component independently.
+
+## Why did vector search find the PGVector lesson?
+
+This question made the purpose of embeddings click for me.
+
+The query asked:
+
+> "How do I store vectors in PostgreSQL?"
+
+Keyword search mostly relies on exact words. It returned documents containing overlapping terms, but it missed the dedicated PGVector lesson.
+
+Vector search first converted both the query and every document into embeddings that capture semantic meaning rather than exact wording. Because the PGVector lesson discusses storing embeddings inside PostgreSQL—even if it doesn't use exactly the same phrasing—it became the highest ranked result.
+
+This demonstrated the fundamental advantage of vector search:
+
+- Text search matches words.
+- Vector search matches meaning.
+
+That difference is what makes Retrieval-Augmented Generation (RAG) much more robust when users phrase questions differently from the original documentation.
+
+## Why do we encode the query every time?
+
+Vector search compares vectors, not text.
+
+The documents are already stored as vectors, but the user's query is still plain English. Before searching we must pass the query through the same embedding model so it lives in the same vector space. Only then can cosine similarity (or dot product) measure semantic closeness.
+
+Text search works directly on words.
+
+Vector search works on meanings.
+
+Hybrid search combines both perspectives, often giving better results than either approach alone.
+
+## Why can the same filename appear multiple times in vector search?
+
+Vector search is usually performed over chunks, not whole documents.
+
+A long document is split into overlapping chunks, and each chunk gets its own embedding. During retrieval, multiple chunks from the same file can all be highly relevant and appear separately in the results.
+
+The RAG system later decides which chunks to include in the prompt. This is why search results often contain repeated filenames with different chunk offsets (`start` values).
+
+## Why does Reciprocal Rank Fusion (RRF) often outperform either search method?
+
+RRF combines ranked lists rather than raw similarity scores.
+
+Instead of asking "Which document had the highest score?", it asks:
+
+> Which documents consistently appear near the top across multiple search methods?
+
+A document that ranks well in both text search and vector search receives contributions from both lists, often allowing it to outrank documents that were first in only one search.
+
+This makes hybrid search more robust because it balances the strengths of exact keyword matching with semantic similarity.
