@@ -1,8 +1,11 @@
 # Homework 2: Vector Search — Solutions & Notes
 
 **Course:** LLM Zoomcamp 2026 — Module 2
+
 **Knowledge base:** Course lesson pages (pulled from GitHub, commit `8c1834d`)
+
 **Full notebook:** https://github.com/Sanjomwa/LLM-ZOOMCAMP-2026/blob/main/homework/module_02/vector_search.ipynb
+
 **Course material:** https://github.com/DataTalksClub/llm-zoomcamp/tree/main/02-vector-search
 
 ---
