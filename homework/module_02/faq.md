@@ -14,3 +14,64 @@ Printing the embedding shape and first value is a deterministic verification tha
 
 In this exercise we are not performing retrieval yet. We are validating the behavior of the embedding model. By comparing a query against a single known document, we can build intuition for what cosine similarity represents. Retrieval systems simply repeat this comparison against every document in a corpus and rank them by similarity, returning the most relevant results.
 
+## Why wasn't the cosine similarity close to 1?
+
+Cosine similarity measures semantic similarity, not keyword overlap.
+
+The query about approximate nearest neighbor (ANN) search and the SQLite vector search lesson discuss related concepts, so the similarity is positive. However, the lesson covers many additional topics (SQLite, SQL, persistence, implementation details), so the embeddings are not nearly identical.
+
+A cosine similarity around 0.36 indicates meaningful semantic overlap without the texts expressing the same idea.
+
+## Why does chunking improve retrieval?
+
+Embedding an entire document forces the model to compress many different topics into a single vector. Chunking breaks the document into smaller semantic units, allowing each embedding to represent a more focused idea. During retrieval, the query is therefore compared against many specialized vectors instead of one general-purpose vector, increasing the likelihood of finding highly relevant context.
+
+### Why chunk before embedding?
+
+A full document often contains several different topics. Its embedding becomes an average representation of everything in the page.
+
+Chunking creates smaller, more focused pieces of text. Each chunk gets its own embedding, making it easier for vector search to retrieve only the most relevant information.
+
+Conceptually:
+
+Document
+→ Chunk 1
+→ Chunk 2
+→ Chunk 3
+
+Each chunk has its own vector, allowing much more precise retrieval.
+
+### Why use argmax() after computing similarities?
+
+The similarity computation returns one score for every embedded chunk.
+
+`argmax()` returns the position of the highest score, allowing us to retrieve the chunk that is most semantically similar to the user's query.
+
+This is the core retrieval step in vector search:
+- compute similarities
+- find the highest score
+- return the corresponding chunk
+
+## Q3 — Why did chunking increase similarity?
+
+The cosine similarity increased from approximately 0.36 (whole document) to approximately 0.65 (best chunk).
+
+This happened because chunking isolates individual topics. Instead of comparing the query against an embedding representing an entire lesson, vector search compares it against smaller, more focused semantic units.
+
+This demonstrates that retrieval quality can often be improved more by better document preparation than by changing the embedding model itself.
+
+### Why does `VectorSearch.search()` take a vector instead of raw text?
+
+`VectorSearch` is only responsible for searching vectors. It does not know how to convert text into embeddings.
+
+This separation of concerns keeps the library flexible. Any embedding model (ONNX, sentence-transformers, OpenAI embeddings, etc.) can be used, as long as it produces vectors of the correct dimension.
+
+## Q4 — Why use a vector search library?
+
+Implementing vector search manually helps understand cosine similarity and ranking. A library such as `minsearch` automates those operations while preserving the same underlying mathematics.
+
+The embedding model and the search engine have different responsibilities:
+- the embedding model converts text into vectors;
+- the search library indexes vectors and retrieves the nearest neighbors.
+
+This separation of concerns makes it easy to replace either component independently.
