@@ -1,0 +1,31 @@
+# Secrets
+.env
+.env.*
+
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+*.pid
+
+storage/
+
+# Python
+.venv/
+__pycache__/
