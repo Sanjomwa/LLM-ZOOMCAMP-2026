@@ -44,8 +44,8 @@ services:
         kestra:
           server:
             basicAuth:
-              username: "admin@kestra.io"
-              password: Admin1234!
+              username: "njogumwaniki9@gmail.com"
+              password: Samnjogu9!
           repository:
             type: postgres
           storage:
