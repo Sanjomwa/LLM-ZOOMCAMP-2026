@@ -4,7 +4,7 @@
 
 **Knowledge base:** https://github.com/DataTalksClub/llm-zoomcamp/tree/main/04-evaluation (72 lesson pages across the whole course, pinned at commit 8c1834d).
 
-**Full notebook: /home/sanjomwa/Projects/LLM-ZOOMCAMP-2026/homework/module_04/evaluation.ipynb**
+**Full notebook: LLM-ZOOMCAMP-2026/homework/module_04/evaluation.ipynb**
 
 Continues from: Homework 2 — same chunks, same project, same search functions.
 
@@ -186,11 +186,17 @@ k=200: {'hit_rate': 0.8361111111111111, 'mrr': 0.637916666666667}
 k=50/100/200 are identical to four decimal places on this dataset — past a certain point, raising k stops changing which chunk lands on top, so the metric flattens out completely. Only the sharpest setting moved the number, and it moved it in the direction of trusting each method's own top pick more heavily.
 
 ### Summary: Which Search Method Actually Won?
-Method	Hit Rate	MRR
-text_search	0.7583	0.5943
-vector_search	0.7250	0.5486
-hybrid_search (k=1)	0.8389	0.6482
+text_search	Hit Rate 0.7583	MRR 0.5943
+
+vector_search	Hit Rate 0.7250	MRR 0.5486
+
+hybrid_search (k=1)	Hit Rate 0.8389	MRR 0.6482
+
 Hybrid wins outright over either method alone, on both metrics — the RRF consensus signal (a chunk that shows up credibly in both rankings) beats trusting either ranking on its own. The more interesting result is that plain keyword search beat vector search here, on both metrics, which isn't what most people would predict going in. That's the entire point of this homework: replace the guess with a number.
 
-Full notebook: evaluation.ipynb — /home/sanjomwa/Projects/LLM-ZOOMCAMP-2026/homework/module_04/evaluation.ipynb Study notes: evaluation_notes.md Course material: 04-evaluation Homework instructions: DataTalksClub/llm-zoomcamp, cohorts/2026/04-evaluation/homework.md
+Full notebook: evaluation.ipynb — LLM-ZOOMCAMP-2026/homework/module_04/evaluation.ipynb 
+
+Study notes: evaluation_notes.md
+Course material: 04-evaluation 
+Homework instructions: DataTalksClub/llm-zoomcamp, cohorts/2026/04-evaluation/homework.md
 
