@@ -1,23 +1,19 @@
 # Homework 5: Monitoring — Solutions
 
-
 **Course:** LLM Zoomcamp 2026 — Module 5
-
 
 **Full notebook:** `monitoring.ipynb`
 
-
 **Course material:** https://github.com/DataTalksClub/llm-zoomcamp/tree/main/05-monitoring
 
-
-**Homework instructions:** [DataTalksClub/llm-zoomcamp, cohorts/2026/05-monitoring](https://github.com/DataTalksClub/llm-zoomcamp/tree/main/cohorts/2026/05-monitoring)
+**Homework instructions:** [DataTalksClub/llm-zoomcamp, cohorts/2026/05-monitoring/homework.md](https://github.com/DataTalksClub/llm-zoomcamp/blob/main/cohorts/2026/05-monitoring/homework.md)
 
 ---
 
 ## Setup
 
 ```bash
-uv add openai pydantic python-dotenv pandas
+uv add gitsource minsearch openai python-dotenv opentelemetry-api opentelemetry-sdk
 ```
 
 Download the starter files:
@@ -33,189 +29,178 @@ directly — its module-level code builds the search index
 (`GithubRepositoryDataReader` over the 72 course lesson pages, commit
 `8c1834d`) and the OpenAI client. `load_dotenv()` runs before
 `import starter`, since `starter.py`'s own `client = OpenAI()` line
-needs `OPENAI_API_KEY` already in the environment. Importing doesn't
-trigger `starter.py`'s own demo query — that only runs under its
-`if __name__ == "__main__":` guard.
+needs `OPENAI_API_KEY` already in the environment.
 
 ---
 
-## Approach: instrumenting the RAG pipeline with a tracer
+## Approach: instrumenting the RAG pipeline with OpenTelemetry
 
-The homework asks for a trace of one RAG call, made of spans. There's
-no tracing library used here — a small, dependency-free tracer is built
-directly in the notebook: a `Span` dataclass (name, start/end time,
-attributes), a `Trace` that holds an ordered list of spans, and a
-`SpanRecorder` context manager that times a block and appends the
-resulting span to the trace.
+A `TracerProvider` is set up with a `ConsoleSpanExporter` before
+`starter` is imported, so any spans created anywhere are ready to be
+captured from the start:
 
-`TracedRAG(RAGBase)` adds one method, `rag_traced(query)`, that runs
-the same three steps `rag()` already does — `search()`, `build_prompt()`,
-`llm()` — wrapping `search()` and `llm()` each in their own span, nested
-inside a parent `rag` span that times the whole call. `search()` and
-`llm()` themselves are untouched; only the wrapper adds timing.
+```python
+provider = TracerProvider()
+provider.add_span_processor(SimpleSpanProcessor(console_exporter))
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer("llm-zoomcamp")
+```
 
-The trace is returned directly from `rag_traced()` rather than stored
-as an attribute on the instance, so nothing about the tracer depends on
-only one call being in flight at a time.
+`RAGTraced(RAGBase)` overrides `rag()`, `search()`, and `llm()`, wrapping
+each in its own span via `tracer.start_as_current_span(...)`. Span
+nesting is automatic: when `rag()` calls `self.search()` from inside its
+own span's `with` block, `search`'s span becomes a child of `rag`
+without any manual parent-linking. Token usage and cost are attached to
+the `llm` span as attributes (`span.set_attribute(...)`).
+
+For persistence, a custom `SQLiteSpanExporter(SpanExporter)` writes each
+finished span's name, start/end time, and attributes to a `spans` table
+in `traces.db`, added as a second span processor alongside the console
+one.
 
 ---
 
-## Q1. How many spans does the trace produce?
+## Q1. First trace — how many spans does the trace produce?
 
-**Answer: 3** (`rag`, `search`, `llm`)
+**Answer:** 3
 
 ### Why
 
-`rag()` calls exactly two things: `search()` then `llm()`. Wrapping the
-whole call in a parent span, plus one child span per sub-call, gives 3
-spans total. `build_prompt()` isn't spanned separately — it's pure
-string formatting with no meaningful duration to track.
+`RAGTraced.rag()` wraps `search()` and `llm()`, each producing its own
+span nested under `rag`'s. Three method calls, three spans.
 
 ### How
 
 ```python
-num_spans = len(trace.spans)
+num_spans = len(console_exporter.spans)
 print("Q1 - number of spans:", num_spans)
 ```
-```
-Q1 - number of spans: 3
-```
+
+### What to remember
+
+OpenTelemetry exports finished spans in the order they *complete*, not
+the order they started — children finish before their parent, so the
+captured list comes back as `[search, llm, rag]`, not `[rag, search,
+llm]`. The count and the set of names are unaffected; only the order is
+different from what a naive parent-first assumption would predict.
 
 ---
 
-## Q2. How many input tokens do we see for the LLM call?
+## Q2. Capturing metrics as span attributes — how many input tokens?
 
-**Answer: 7,111**
+**Answer:** 7,111 (closest option: 7,000)
 
 ### Why
 
-Read directly off `response.usage.input_tokens` on the `llm` span.
+`response.usage.input_tokens` is read inside `llm()` and attached to the
+span with `span.set_attribute("input_tokens", ...)` — attributes are
+OpenTelemetry's mechanism for putting arbitrary data (tokens, cost) on a
+span, not just timing.
 
 ### How
 
 ```python
-llm_span = next(s for s in trace.spans if s.name == "llm")
-input_tokens = llm_span.attributes["input_tokens"]
+llm_span = next(s for s in console_exporter.spans if s.name == "llm")
+input_tokens = dict(llm_span.attributes)["input_tokens"]
 print("Q2 - llm span input_tokens:", input_tokens)
 ```
-```
-Q2 - llm span input_tokens: 7111
+
+### What to remember
+
+The retrieved context is 5 full, unchunked lesson pages, not short
+snippets — that's what pushes the token count into the thousands.
+
+---
+
+## Q3. Span timing — how long does the LLM call take?
+
+**Answer:** Over 2000ms (measured: `llm` = 9,619.7ms, `search` = 126.5ms)
+
+### Why
+
+Each `ReadableSpan` carries `start_time`/`end_time` as nanosecond
+timestamps; duration is `(end_time - start_time) / 1_000_000` for
+milliseconds.
+
+### How
+
+```python
+for s in console_exporter.spans:
+    duration_ms = (s.end_time - s.start_time) / 1_000_000
+    print(f"Q3 - span '{s.name}' duration_ms: {duration_ms:.1f}")
 ```
 
 ### What to remember
 
-The retrieved context is 5 full, unchunked lesson pages (`build_context`
-concatenates each result's entire `content`), not short snippets — that's
-what pushes the token count into the thousands rather than the hundreds.
+The LLM call dominates by roughly two orders of magnitude over search
+(9,619.7ms vs. 126.5ms on this run) — a network round-trip carrying
+several thousand tokens of context vs. an in-process index lookup.
+Later runs in this notebook show shorter `llm` durations (call latency
+varies run to run), but all land well past the 2000ms threshold.
 
 ---
 
-## Q3. Roughly how long does the LLM call take?
+## Q4. Saving traces to SQLite — which span names appear?
 
-**Answer: 6,960.3ms** → the "Over 2000ms" bucket.
+**Answer:** `rag`, `search`, and `llm`
 
 ### Why
 
-Read directly off the `llm` span's `duration_ms` — wall-clock time
-around the request.
+The custom `SQLiteSpanExporter` inserts one row per finished span into
+`traces.db`'s `spans` table, so every span name that was created shows
+up as a row.
 
 ### How
 
 ```python
-llm_duration_ms = llm_span.duration_ms
-print("Q3 - llm span duration_ms:", round(llm_duration_ms, 1))
-```
-```
-Q3 - llm span duration_ms: 6960.3
-```
-
-### What to remember
-
-~7 seconds is largely a function of the ~7,100 input tokens the model
-has to process — a direct cost of retrieving full lesson pages instead
-of smaller chunks as context.
-
----
-
-## Q4. Which span names appear in the spans table?
-
-**Answer: `rag`, `search`, and `llm`**
-
-### Why
-
-The built-in judge (`evaluate_relevance`) is a separate call made after
-`rag()` returns, not part of `rag()` itself, so no `judge` span is
-produced by this trace.
-
-### How
-
-```python
-span_names = [s.name for s in trace.spans]
-print("Q4 - span names:", span_names)
-```
-```
-Q4 - span names: ['rag', 'search', 'llm']
+df = pd.read_sql("SELECT * FROM spans", sqlite3.connect("traces.db"))
+span_names = sorted(df["name"].unique().tolist())
+print("Q4 - span names in traces.db:", span_names)
 ```
 
 ---
 
-## Q5. Excluding the rag span, which span type takes the most total time?
+## Q5. Querying trace data — excluding rag, which span type is slowest?
 
-**Answer: `llm`** — roughly 64x slower than `search` (6,960.3ms vs.
-108.9ms).
+**Answer:** `llm` (2,604.5ms total vs. `search`'s 35.1ms, on the run measured for this question)
 
 ### Why
 
-`search()` runs in-process against an already-built in-memory index —
-no network call. `llm()` is a network round-trip to the OpenAI API
-carrying ~7,100 tokens of context. Network latency to a hosted model
-processing a large prompt dominates an in-memory keyword search by a
-wide margin.
+`search()` runs in-process against an already-built index; `llm()` is a
+network round-trip carrying several thousand tokens of context. Summing
+duration by span name (excluding the `rag` parent, whose duration
+already includes both children) shows which step actually dominates
+total time.
 
 ### How
 
 ```python
-non_rag = [s for s in trace.spans if s.name != "rag"]
-by_duration = sorted(non_rag, key=lambda s: s.duration_ms, reverse=True)
-print("Q5 - span durations excluding rag:",
-      [(s.name, round(s.duration_ms, 1)) for s in by_duration])
-```
-```
-Q5 - span durations excluding rag: [('llm', 6960.3), ('search', 108.9)]
+df["duration_ms"] = (df["end_time"] - df["start_time"]) / 1_000_000
+totals = df[df["name"] != "rag"].groupby("name")["duration_ms"].sum()
+print(totals)
 ```
 
 ---
 
-## Q6. How much do input tokens vary across 4 runs of the same query?
+## Q6. Token stability across runs
 
-**Answer: Identical (0.00% variance)**
+**Answer:** They're identical (7,111 input tokens on all 4 runs, 0.00% deviation)
 
 ### Why
 
-The keyword search index is a deterministic scorer over a static,
-already-built index — the same query text retrieves the same documents
-in the same order every time, producing an identical prompt and an
-identical input token count.
+The same query run four times through the same static, already-built
+search index should retrieve the same documents in the same order every
+time — producing an identical prompt and an identical input token
+count, if the retrieval step is genuinely deterministic.
 
 ### How
 
 ```python
-runs = []
-for i in range(4):
-    _, run_trace = assistant.rag_traced(query)
-    run_llm_span = next(s for s in run_trace.spans if s.name == "llm")
-    runs.append(run_llm_span.attributes["input_tokens"])
+for i in range(3):
+    assistant.rag(query)
 
-print("Q6 - input_tokens across 4 runs:", runs)
-
-mean_tokens = statistics.mean(runs)
-max_dev = max(abs(t - mean_tokens) for t in runs)
-pct_variance = (max_dev / mean_tokens) * 100 if mean_tokens else 0
-print(f"Q6 - max deviation from mean: {pct_variance:.2f}%")
-```
-```
-Q6 - input_tokens across 4 runs: [7111, 7111, 7111, 7111]
-Q6 - max deviation from mean: 0.00%
+df = pd.read_sql("SELECT * FROM spans WHERE name = 'llm'", sqlite3.connect("traces.db"))
+print("Q6 - input_tokens per run:", df["input_tokens"].tolist())
 ```
 
 ---
@@ -224,16 +209,12 @@ Q6 - max deviation from mean: 0.00%
 
 | Q | Question | Answer |
 |---|----------|--------|
-| 1 | Span count | 3 (`rag`, `search`, `llm`) |
-| 2 | LLM input tokens | 7,111 |
-| 3 | LLM call duration | 6,960.3ms (Over 2000ms) |
+| 1 | Span count | 3 |
+| 2 | LLM input tokens | 7,111 (→ 7,000 bucket) |
+| 3 | LLM call duration | Over 2000ms (9,619.7ms) |
 | 4 | Span names | `rag`, `search`, `llm` |
-| 5 | Slowest non-rag span | `llm` (64x slower than `search`) |
-| 6 | Input-token variance across 4 runs | Identical (0.00%) |
-
-The LLM call is the clear bottleneck in this pipeline — a direct
-consequence of retrieving full lesson pages as context rather than
-smaller chunks.
+| 5 | Slowest non-rag span | `llm` |
+| 6 | Input-token variance across 4 runs | They're identical (0.00%) |
 
 ---
 
