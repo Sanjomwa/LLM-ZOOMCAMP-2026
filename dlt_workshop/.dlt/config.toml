@@ -3,3 +3,17 @@
 [runtime]
 log_level="WARNING"  # the system log level of dlt
 # use the dlthub_telemetry setting to enable/disable anonymous usage data reporting, see https://dlthub.com/docs/reference/telemetry
+dlthub_telemetry = true
+workspace_id = "28ce9dd9-0538-43b3-a87e-4e45ae115c6d"
+organization_id = "39b5cc51-81de-4e59-af82-ed3ab18cc780"
+
+[sources.filesystem]
+local_dir = "<configure me>" # unused for local bucket_url below
+bucket_url = "file:///home/sanjomwa/.claude/projects"
+
+[sources.agent_logs_api]
+base_url = "https://test-agent-traces-api-xt2e7ottma-ew.a.run.app"
+
+
+[workspace.settings]
+name = "playground"
