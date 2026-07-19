@@ -9,6 +9,13 @@ Read it at the start of every session before anything else
 
 Last updated: **2026-07-19**
 
+**Writing a learning-in-public post (course requirement: 7 on X, 1 on
+LinkedIn) from this module?** This file has the exact numbers, error
+messages, and evidence for each claim — but the framing (hook, stakes,
+audience, which insight goes where) lives in
+`notes/00_mental_models.md` → "Post seeds" section. Start there, come
+back here for the specific artifact to cite.
+
 ---
 
 ## Workshop stages
