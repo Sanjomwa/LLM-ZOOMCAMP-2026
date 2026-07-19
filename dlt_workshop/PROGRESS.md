@@ -64,7 +64,7 @@ be typed because they're all-null in this data so far:
 `message__stop_sequence` — not a bug, just no data with those fields
 yet.
 
-Then wrote `2026-07-19_claude_logs_pipeline_analysis_plan.md` (via
+Then wrote `notes/2026-07-19_claude_logs_pipeline_analysis_plan.md` (via
 `explore-data`, bulk mode — all 4 charts from the lesson's stated
 target planned at once, not one-at-a-time) and built
 `claude_logs_pipeline_dashboard.py` (via `build-notebook`): activity
@@ -221,25 +221,41 @@ traces back out.
 
 ## Homework
 
-Reference: `dlt_homework_materials/homework_notes.md`.
+Reference: `dlt_homework_materials/homework.md` (questions, answers,
+and how each was reached) — `dlt_homework_materials/homework_notes.md`
+is context-only (what the homework tests and why, kept answer-free on
+purpose).
 
-**Status: not started.** Separate track from the workshop stages above
-— it continues Module 1's FAQ agent rather than repeating the
-workshop's own pipelines.
+**Status: all 3 questions answered (2026-07-19), ready to submit.**
+Separate track from the workshop stages above — continues Module 1's
+FAQ agent rather than repeating the workshop's own pipelines.
 
 | Step | Status |
 |---|---|
-| Read `agent.py`/`main.py` (Pydantic AI rewrite of Module 1's agent) | ⬜ |
-| Get Logfire account + write token, configure `.env` | ⬜ |
-| Run agent once with "How do I run Ollama locally?", inspect trace in Logfire UI | ⬜ |
-| Q1 — count spans in that trace | ⬜ Not answered |
-| Build dlt pipeline pulling Logfire traces → DuckDB (ready-made Logfire REST source context) | ⬜ |
-| Q2 — count tables in `agent_traces` schema | ⬜ Not answered |
-| Q3 — sum `gen_ai.usage.input_tokens` across spans, pick range | ⬜ Not answered |
-| Submit at `courses.datatalks.club/llm-zoomcamp-2026/homework/dlt` | ⬜ |
+| Read `agent.py`/`main.py` (Pydantic AI rewrite of Module 1's agent) | ✅ |
+| Get Logfire account + write/read tokens, configure `.env` | ✅ |
+| Run agent once with "How do I run Ollama locally?", inspect trace | ✅ (via Logfire read API, not UI — see homework.md) |
+| Q1 — count spans in that trace | ✅ **5** |
+| Build dlt pipeline pulling Logfire traces → DuckDB | ✅ `dlt_workshop/logfire_pipeline.py` (reuses this workspace, not a separate one) |
+| Q2 — count tables in `agent_traces` schema | ✅ **24** (exact match) |
+| Q3 — sum `gen_ai.usage.input_tokens` across spans, pick range | ✅ **1500-5000** (exact: 4067) |
+| Submit at `courses.datatalks.club/llm-zoomcamp-2026/homework/dlt` | ⬜ user to submit |
 
 Deadline: not yet confirmed — check the course-management site link
-above (wasn't open yet as of 2026-07-18).
+above.
+
+**Structural notes for future reference:**
+`dlt_homework_materials/` is its own standalone `uv` project (own
+`pyproject.toml`/`.venv`) for the agent+Logfire half (Q1/Q3) — keeps
+openai/minsearch/pydantic-ai/logfire out of this workspace's dependency
+tree. Hit and fixed a real gotcha here: running `uv init` inside it
+auto-registered it as a `[tool.uv.workspace]` member of *this*
+`pyproject.toml` (uv's default for a subdirectory of an existing uv
+project) — reverted that. The Q2 dlt pipeline (`logfire_pipeline.py`)
+lives in *this* workspace instead, since the assignment explicitly says
+"Initialize a dlt-hub project like in the workshop" — reusing the
+already-scaffolded, already-proven environment rather than a third
+project.
 
 ---
 
